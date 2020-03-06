@@ -2,4 +2,10 @@
 import example from './create';
 
 //run stuff
-example();
+setTimeout( () =>{
+    console.clear();
+},1000);
+setTimeout( () =>{
+    console.clear();
+    example();
+},2000);
