@@ -1,62 +1,121 @@
+import { updateDisplay, updateDisplayTwo } from './utils';
 import { displayLog } from './utils';
-import { fromEvent } from 'rxjs';
-import { mapTo, map, filter, tap, first, take, takeWhile, last, takeLast, skip, reduce, scan } from 'rxjs/operators';
-export default () => {
+import { fromEvent, Subject, BehaviorSubject } from 'rxjs';
+import { map, tap, takeWhile, startWith, 
+    endWith, distinct, distinctUntilChanged,
+    pairwise, share, delay, bufferTime,
+    sampleTime, auditTime, throttleTime,
+    debounceTime
+} from 'rxjs/operators';
+
+const partOne = function(){
     fromEvent( document.getElementById('grid') ,'click').pipe( 
-        tap( console.log ),
+        // tap( console.log ),
+        // startWith( { offsetX: 500, offsetY: 500 }),
         map( e => [ 
             Math.floor( e.offsetX / 50 ),
             Math.floor( e.offsetY /50 ) 
         ]),
         takeWhile( ( [col,row] ) => col != 0 ),
         tap( console.log ),
-        // reduce( ( accumulator, currentValue ) => {
-        scan( ( accumulator, currentValue ) => {
-            // const [col,row] = currentValue;
-            return { 
-                clicks: accumulator.clicks + 1,
-                cells: [ ...accumulator.cells, currentValue ]
-            }
-            // semilla para inicializar el filter
-        }, { clicks: 0 , cells: [] })
+        /*** distinct no mata el hilo de la función */
+        // map( ([col,row]) => col+row ),
+        // distinct()
+
+        // distinct( ([col,row]) => `${col},${row}` )
+        /*** Bloquear click consecutivos ***/
+        distinctUntilChanged( (cell1, cell2) =>
+            (cell1[0] == cell2[0]) &&
+            (cell1[1] == cell2[1])
+        )
+        // startWith( 'veamos', 'otro'),
+        // endWith("Game finish", "bye")
     ).subscribe( d => {
-        console.log( d );
-        displayLog( ` Numero de clicks => ${d.clicks} , Acumudados => ${ d.cells }  `);
+        // console.log( d );
+        displayLog( d );
     });
-    return;
-    /** start coding */
-    const grid = document.getElementById('grid');
-    const click$ = fromEvent(grid,'click').pipe( 
-        // tap( console.log ),
-        map( e => [ 
-            Math.floor( e.offsetX / 50 ) + 1,
-            Math.floor( e.offsetY /50 ) + 1] 
-        ),
-        // filter( val => ( val[0] + val[1] ) % 2 != 0 ),
-        /*** Unicamente toma el primer resultado y hace un unsubsribe ***/
-        // first( val => val[0] > 5 ) // Cunple la condición y muere
-        // take(5),
-        /*** Se ejecuta solo mientras se siga cumpla la condicion, 
-         * si al principio no se cumple, nunca se ejecutara ***/
-        // takeWhile( ([col,row]) => ( col + row ) %2 != 0),
-        takeWhile( ( [col,row] ) => col > 5 ),
-        tap( console.log ),
-        /* Se ejecuta despues de que se cierra el hilo de comunicación,
-             es decir el último valido */
-        // last()
-        // takeLast(3)
-        /* Skip a partir de **/
-        skip(5)
-        // tap( console.log )
+}
+
+const partTwo = function(){
+
+    const progressBar = document.getElementById('progress-bar');
+    const docElement = document.documentElement;
+    const updateProgressBar = (percentage) => {
+        progressBar.style.width = `${percentage}%`;
+    }
+
+    //observable that returns scroll (from top) on scroll events
+    const scroll$ = fromEvent(document, 'scroll').pipe(
+        // tap( e => console.log("[scroll evt]")),
+        // throttleTime(100),
+        // sampleTime(100),
+        map( () => docElement.scrollTop ),
+        tap(evt => console.log("[scroll]: ", evt))
+        /** Cambia de un call de observable a un hot observable, lo 
+         * caul quiere decir que no generara multiples instancias
+         */
+        // share()
+        // pairwise(),
+        // tap( ([previos,current])=>{
+        //     updateDisplay( current>previos ? 'DESC' : 'ASC');
+        // })
     );
-    // let count = 0;
-    click$.subscribe( e => {
-        displayLog( e );
-        // count++;
-        // click$.subscribe( result => {
-        //     displayLog(`Subscribe ${ count } --> ${ result }`);
-        // });
+
+    //observable that returns the amount of page scroll progress
+    const scrollProgress$ = scroll$.pipe(
+        map(evt => {
+            const docHeight = docElement.scrollHeight - docElement.clientHeight;
+            return (evt / docHeight) * 100;
+        }),
+        /*** Buffer time, siempre se esta ejecutando */
+        // bufferTime(50,100),
+        tap( evt => console.log("[Buffer]:", evt ))
+    );
+
+    // const scrollProgressHot$ = new Subject();
+    const scrollProgressHot$ = new BehaviorSubject(0);
+    scrollProgress$.subscribe( scrollProgressHot$ );
+
+    //subscribe to scroll progress to paint a progress bar
+    scrollProgressHot$.subscribe(updateProgressBar);
+
+    scrollProgressHot$.subscribe( (val) => {
+        updateDisplay(`${ Math.floor(val)}%`);
     });
 
-    /** end coding */
+    scrollProgressHot$.subscribe( (val) => {
+        updateDisplayTwo(` Por esparta ->${ Math.floor(val)}%`);
+    });
+
+    // Para inicializar
+    // scrollProgressHot$.next(0);
+    console.log('Scroll initial ---->', scrollProgressHot$.value );
 }
+
+const example = async function(){
+    const isFnDelay = (miliseconst, fail = false ) => {
+        return new Promise( (resolve, reject) => {
+            if( fail ){ reject('?Se forzo a fallar') }
+            setTimeout( function(){
+                resolve();
+            }, miliseconst );
+        });
+    }
+        
+    await isFnDelay(2500);
+    console.clear();
+    console.log('Experimental');
+    isFnDelay(1500, false ).then( () =>{  console.log('Peligrosos son algunos atagos'); } ).catch( console.log );
+    console.log('Claro que funciona');
+}
+
+const partTree = function(){
+    const inputBox = document.getElementById('inputBox');
+    const inputSrc$ = fromEvent(inputBox,"input").pipe(
+        debounceTime(500),
+        map( event => event.target.value )
+    );
+    inputSrc$.subscribe(displayLog);
+}
+
+export default partTree;
