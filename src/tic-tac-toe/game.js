@@ -2,7 +2,7 @@ import { Observable, merge } from 'rxjs';
 import { scan, startWith, tap, takeWhile } from 'rxjs/operators';
 import { userMove$ } from './userMove';
 import { gameState$ } from './gameState';
-import { computerMove$, simulatedComputerTurn } from './computerMove';
+import { computerMove$, simulateComputerTurn } from './computerMove';
 
 //pure function to find out empty cells
 export const getEmptyCells = (board) =>{
@@ -67,7 +67,7 @@ export const game$ = merge(userMove$, computerMove$ ).pipe(
     tap( (state) => {
         console.log(state);
         if( state.nextPlayer == 2 && !state.finished ){
-            simulatedComputerTurn( getEmptyCells(state.board) );
+            simulateComputerTurn( getEmptyCells(state.board) );
         }
     }),
     takeWhile( ({finished}) => finished == false, true )
