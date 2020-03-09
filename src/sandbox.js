@@ -1,6 +1,6 @@
 import { updateDisplay } from './utils';
-import { fromEvent, interval } from 'rxjs';
-import { mapTo, scan, takeWhile  } from 'rxjs/operators';
+import { fromEvent, interval, merge, NEVER, EMPTY } from 'rxjs';
+import { mapTo, scan, takeWhile, switchMap, startWith, materialize, dematerialize, tap } from 'rxjs/operators';
 
 export default () => {
     /** start coding */
@@ -16,17 +16,27 @@ export default () => {
     const pause$ = fromEvent(pauseButton, 'click');
     const resume$ = fromEvent(resumeButton, 'click');
 
+    const isPaused$ = merge( pause$.pipe(mapTo(true)), resume$.pipe(mapTo(false)));
+
     /** 1s negative interval */
     const interval$ = interval(1000).pipe(mapTo(-1));
 
     /** countdown timer */
-    const countdown$ = interval$.pipe(
+    const countdown$ = isPaused$.pipe(
+        startWith(false),
+        switchMap( paused => !paused ? 
+            interval$.pipe( materialize() ) : 
+            EMPTY.pipe( materialize() ) 
+        ),
+        dematerialize(),
         scan((acc, curr) => ( curr ? curr + acc : curr ), countdownSeconds),
         takeWhile(v => v >= 0)
+        // materialize(),
+        // tap( console.log )
     );
 
     /** subscribe to countdown */
-    countdown$.subscribe(updateDisplay);
+    countdown$.subscribe(updateDisplay);// , null, (n) => console.log('Completed', n)) ;
 
     
     /** end coding */
